@@ -35,29 +35,23 @@ def _extract_structure_description(markdown_content: str) -> str:
     Extract the key structure description from markdown content.
     Focuses on the connectivity constraints for laser cutting and detail control.
     """
-    # Return a concise version that emphasizes both connectivity and detail control
+    # Return a concise version - keep it short so theme prompt dominates
     return (
-        "The image must be designed for laser cutting where black portions are cut out to create voids/windows, "
-        "and white portions remain as solid material. The black pattern must connect the sides of the image, "
-        "creating pathways that span from edge to edge. The white material must form a connected structure "
-        "that reaches at least one edge of the image to maintain stability. "
-        "CRITICAL: The image must be a completely flat, two-dimensional pattern with no perspective, no depth, no shadows, no 3D appearance, no viewing angle, and no separate objects. "
-        "The pattern must fill the entire image canvas edge-to-edge with no white borders. It must appear as a flat graphic design filling the entire canvas. "
-        "Bold, simplified pattern with large-scale elements. Minimum detail size: all features must be at least 3-5 pixels wide. "
-        "Avoid fine details, intricate textures, or tiny elements. Use a coarse, graphic style like bold graphic design or stencil art, "
-        "not detailed illustration. High contrast black and white only, no grayscale, no intermediate tones. "
-        "Clean, minimal aesthetic with simple shapes and patterns rather than complex, detailed textures."
+        "Flat, two-dimensional black and white pattern filling entire canvas edge-to-edge. "
+        "No perspective, no depth, no shadows, no 3D appearance, no separate objects. "
+        "Black pattern connects image edges; white material forms connected structure. "
+        "Bold, simplified style with large-scale elements (minimum 3-5 pixels). "
+        "High contrast only, no grayscale."
     )
 
 def _get_default_structure_prompt() -> str:
     """Return a default structure prompt if file cannot be loaded."""
     return (
-        "Black and white high contrast image designed for laser cutting. "
-        "Black portions create voids, white portions form connected structure reaching image edges. "
-        "CRITICAL: Completely flat, two-dimensional pattern with no perspective, no depth, no shadows, no 3D appearance, no viewing angle, no separate objects. "
-        "Pattern must fill entire image canvas edge-to-edge with no white borders. Flat graphic design filling entire canvas. "
-        "Bold, simplified pattern with large-scale elements. Minimum detail size: all features must be at least 3-5 pixels wide. "
-        "Avoid fine details, intricate textures, or tiny elements. Coarse, graphic style like bold graphic design or stencil art."
+        "Flat, two-dimensional black and white pattern filling entire canvas edge-to-edge. "
+        "No perspective, no depth, no shadows, no 3D appearance, no separate objects. "
+        "Black pattern connects image edges; white material forms connected structure. "
+        "Bold, simplified style with large-scale elements (minimum 3-5 pixels). "
+        "High contrast only, no grayscale."
     )
 
 def combine_prompts(structure_prompt: str, theme_prompt: str) -> str:
@@ -69,7 +63,8 @@ def combine_prompts(structure_prompt: str, theme_prompt: str) -> str:
         theme_prompt: The theme-specific prompt
         
     Returns:
-        Combined prompt string
+        Combined prompt string - theme first, then structure constraints
     """
-    return f"{structure_prompt}. {theme_prompt}"
+    # Put theme first so it's more prominent, then add structure constraints
+    return f"{theme_prompt}. {structure_prompt}"
 
