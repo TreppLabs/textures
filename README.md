@@ -1,34 +1,24 @@
 # Textures Generator
 
-A human-in-the-loop texture generation system that uses AI (OpenAI API with DALL-E) to create, iterate, and refine black and white organic textures. The system enables theme-based prompt evolution through user ratings and feedback.
+A web application for generating black and white texture patterns designed for **laser-cutting projects**. Uses AI (OpenAI DALL-E 3) to create, iterate, and refine textures through a human-in-the-loop workflow. Each theme aims to produce one favorite image suitable for laser cutting.
 
-## 🎯 Project Overview
+> **Note**: This project was vibe-coded - built iteratively with rapid experimentation. The code prioritizes functionality over perfection.
 
-This system treats prompt engineering as an evolutionary process where:
-- High-rated images influence future prompt variations
-- Keywords can be tracked and weighted for effectiveness
-- Prompt history creates a "lineage" for each theme
-- Users can fork successful themes to explore variations
+## 🎯 Purpose
 
-## 🏗️ Architecture
-
-### Frontend (Next.js 14+)
-- **Framework**: Next.js with TypeScript and Tailwind CSS
-- **Pages**: Dashboard, Theme workspace, Gallery, Analytics
-- **Components**: ImageGrid, ThemeSelector, RatingStars, GenerationControls, PromptEditor
-
-### Backend (Python FastAPI)
-- **Framework**: FastAPI with SQLAlchemy
-- **Database**: SQLite with comprehensive schema
-- **AI Integration**: OpenAI API for texture generation
-- **Core Modules**: Prompt engine, keyword extractor, rating analyzer, theme manager
+Generate laser-cuttable black and white patterns where:
+- **Black portions** are cut out (creating voids/windows)
+- **White portions** remain as solid material
+- Patterns connect edge-to-edge for structural integrity
+- Each theme produces one favorite image through iterative refinement
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 18+ (Note: Current setup uses Node 19.7.0, may need upgrade for full compatibility)
+- Node.js 20.18.0+ (use `asdf` with `.tool-versions` or install directly)
 - Python 3.11+
-- OpenAI API key
+- OpenAI API key ([get one here](https://platform.openai.com/api-keys))
+- ~$0.04 per image (Standard quality, 1024×1024)
 
 ### Installation
 
@@ -37,7 +27,7 @@ This system treats prompt engineering as an evolutionary process where:
    git clone <repository-url>
    cd textures
    cp .env.example .env
-   # Edit .env with your OpenAI API key
+   # Edit .env and add your OPENAI_API_KEY
    ```
 
 2. **Backend setup**:
@@ -53,162 +43,74 @@ This system treats prompt engineering as an evolutionary process where:
    cd frontend
    npm install
    cp .env.local.example .env.local
+   # .env.local is already configured for localhost:8000
    ```
 
-### Running the Application
+### Running
 
-1. **Start the backend**:
+1. **Start backend** (terminal 1):
    ```bash
    cd backend
    source venv/bin/activate
-   uvicorn src.main:app --reload --port 8000
+   uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
-2. **Start the frontend** (in a new terminal):
+2. **Start frontend** (terminal 2):
    ```bash
    cd frontend
    npm run dev
    ```
 
-3. **Access the application**:
-   - Frontend: http://localhost:3000
-   - API Docs: http://localhost:8000/docs
+3. **Open**: http://localhost:3000
 
-## 📁 Project Structure
+## 🏗️ Architecture
 
-```
-textures/
-├── frontend/                 # Next.js application
-│   ├── src/
-│   │   ├── app/             # Next.js 13+ app directory
-│   │   │   ├── page.tsx     # Dashboard
-│   │   │   ├── theme/[id]/  # Theme workspace
-│   │   │   ├── gallery/     # Image gallery
-│   │   │   └── analytics/   # Analytics dashboard
-│   │   ├── components/      # React components
-│   │   └── lib/             # API client, utilities
-│   └── package.json
-│
-├── backend/                  # Python FastAPI
-│   ├── src/
-│   │   ├── api/             # API route handlers
-│   │   ├── core/            # Core business logic
-│   │   ├── models/          # Database models
-│   │   └── main.py          # FastAPI app entry
-│   └── requirements.txt
-│
-├── data/                     # Persistent data storage
-│   ├── database/            # SQLite database
-│   ├── images/              # Generated images
-│   └── exports/             # Future: SVG/vector exports
-│
-├── docs/                     # Documentation
-├── .env.example             # Environment template
-└── README.md
-```
+- **Frontend**: Next.js 14+ (TypeScript, Tailwind CSS)
+- **Backend**: FastAPI (Python) with SQLite
+- **AI**: OpenAI DALL-E 3 API
+- **Storage**: Images in `data/images/`, database in `data/database/`
 
-## 🔧 Key Features
+## 🎨 Workflow
 
-### Theme Management
-- Create and manage multiple texture themes
-- Branch themes to explore variations
-- Track theme lineage and evolution
+1. **Create a Theme** with a base prompt describing your texture style
+2. **Generate Variations** (default: 4 images in parallel)
+3. **Rate Images** (1-5 stars) to identify favorites
+4. **Iterate** - system learns from ratings to improve future generations
+5. **Select Favorite** - each theme aims for one perfect image
 
-### Intelligent Generation
-- Generate 4-6 texture variations per session
-- AI-powered prompt variation based on ratings
-- Keyword tracking with `##keyword` syntax
+## 📁 Key Files
 
-### Rating & Learning
-- 1-5 star rating system for each image
-- Automatic keyword effectiveness analysis
-- Prompt suggestions based on successful patterns
-
-### Analytics Dashboard
-- Keyword effectiveness metrics
-- Theme performance statistics
-- Success rate analysis
-
-## 🎨 Usage Workflow
-
-1. **Create a Theme**: Start with a base prompt describing your desired texture style
-2. **Generate Variations**: Create 4-6 texture variations with slight prompt modifications
-3. **Rate Images**: Rate each generated texture (1-5 stars)
-4. **Learn & Iterate**: The system analyzes your ratings to improve future generations
-5. **Branch & Explore**: Create theme branches to explore different directions
+- `prompts/structure.md` - Laser-cutting constraints (applied to all images)
+- `backend/src/core/structure_prompt.py` - Loads and combines structure + theme prompts
+- `backend/src/api/generate.py` - Parallel image generation
+- `frontend/src/app/` - Next.js pages (Dashboard, Gallery, Theme workspace)
 
 ## 🔑 Environment Variables
 
-### Backend (.env)
+**Backend** (`.env`):
 ```bash
-OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_API_KEY=sk-your-key-here
 OPENAI_MODEL=dall-e-3
 DATABASE_URL=sqlite:///./data/database/textures.db
 IMAGES_DIR=./data/images
-API_HOST=0.0.0.0
-API_PORT=8000
 ```
 
-### Frontend (.env.local)
+**Frontend** (`.env.local`):
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-## 🛠️ Development
+## 💰 Cost
 
-### Backend Development
-```bash
-cd backend
-source venv/bin/activate
-uvicorn src.main:app --reload --port 8000
-```
+- **Standard quality** (1024×1024): $0.04 per image
+- **HD quality** (1024×1024): $0.08 per image
+- Default: 4 variations = $0.16 per generation session
 
-### Frontend Development
-```bash
-cd frontend
-npm run dev
-```
+## 🚧 Status
 
-### Database Management
-```bash
-# Access SQLite database
-sqlite3 data/database/textures.db
-
-# Backup database
-cp data/database/textures.db data/database/textures.db.backup
-```
-
-## 📊 Database Schema
-
-- **themes**: Theme metadata and base prompts
-- **generations**: Generation sessions
-- **images**: Individual images with ratings
-- **keywords**: Keyword effectiveness tracking
-- **prompt_history**: Prompt evolution over time
-
-## 🚧 Current Status
-
-✅ **Completed**:
-- Project structure and setup
-- Backend core modules (OpenAI client, prompt engine, rating analyzer)
-- Database schema and models
-- Frontend components and pages
-- Theme management system
-- OpenAI DALL-E 3 integration with real image generation
-- Image persistence and retrieval (database + file storage)
-- Gallery and Recent Images views
-- Image rating endpoints
-
-🔄 **Next Steps**:
-- Rating UI implementation
-- Prompt evolution based on ratings
-- Analytics dashboard
-- Theme branching workflow
-
-## 🤝 Contributing
-
-This is a personal creative tool project. Feel free to fork and adapt for your own use!
+✅ **Working**: Image generation, theme management, galleries, parallel generation, structure prompts  
+🔄 **Future**: Rating UI, prompt evolution, analytics dashboard
 
 ## 📄 License
 
-MIT License - see LICENSE file for details.
+MIT License
