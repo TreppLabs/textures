@@ -7,6 +7,7 @@ import os
 import json
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+from .structure_prompt import load_structure_prompt, combine_prompts
 
 load_dotenv()
 
@@ -16,6 +17,7 @@ class OpenAIClient:
     def __init__(self):
         self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = os.getenv("OPENAI_MODEL", "dall-e-3")
+        self.structure_prompt = load_structure_prompt()
     
     def generate_texture_variations(
         self, 
@@ -43,18 +45,17 @@ class OpenAIClient:
         
         for i in range(num_variations):
             try:
-                # Create variation of the prompt
-                variation_prompt = self._create_prompt_variation(base_prompt, i)
+                # Create variation of the theme prompt
+                theme_variation = self._create_prompt_variation(base_prompt, i)
                 
-                # Enhance prompt for black and white textures
+                # Combine structure prompt (applies to all images) with theme prompt
+                combined_prompt = combine_prompts(self.structure_prompt, theme_variation)
+                
                 # Remove ## keywords for the actual API call (they're just for tracking)
-                clean_prompt = variation_prompt.replace("##", "")
+                clean_prompt = combined_prompt.replace("##", "")
                 
-                # Add black and white specification if not already present
-                if "black and white" not in clean_prompt.lower() and "monochrome" not in clean_prompt.lower():
-                    enhanced_prompt = f"{clean_prompt}, black and white, high contrast texture pattern"
-                else:
-                    enhanced_prompt = clean_prompt
+                # The structure prompt already includes black and white, so we don't need to add it again
+                enhanced_prompt = clean_prompt
                 
                 # Generate image
                 response = self.client.images.generate(
@@ -69,7 +70,7 @@ class OpenAIClient:
                 # Extract image data
                 image_data = response.data[0]
                 variations.append({
-                    "prompt": variation_prompt,  # Keep original prompt with ## keywords for tracking
+                    "prompt": theme_variation,  # Keep original prompt with ## keywords for tracking
                     "image_url": image_data.url,
                     "variation_index": i,
                     "size": size,
@@ -78,7 +79,9 @@ class OpenAIClient:
                 })
                 
             except Exception as e:
+                import traceback
                 print(f"Error generating variation {i}: {str(e)}")
+                print(traceback.format_exc())
                 continue
         
         return variations

@@ -54,7 +54,7 @@ export default function ThemePage() {
 
   const loadThemeImages = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/themes/${themeId}/images`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/images/theme/${themeId}`);
       if (response.ok) {
         const data = await response.json();
         setImages(data);
@@ -199,22 +199,26 @@ export default function ThemePage() {
 
         {/* Images Grid */}
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              Generated Images ({images.length})
+          <div className="mb-4">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+              Theme Gallery ({images.length} images)
             </h2>
-            <Link 
-              href={`/theme/${themeId}/history`}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              View History →
-            </Link>
+            <p className="text-gray-600 text-sm">
+              Goal: Find your favorite image for this theme. Rate images to help identify the best one.
+            </p>
           </div>
-          <ImageGrid
-            images={images}
-            showRatings={true}
-            onRatingChange={handleRatingChange}
-          />
+          {images.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
+              <p className="text-gray-500 mb-4">No images generated yet for this theme.</p>
+              <p className="text-sm text-gray-400">Use the controls above to generate your first variations.</p>
+            </div>
+          ) : (
+            <ImageGrid
+              images={images}
+              showRatings={true}
+              onRatingChange={handleRatingChange}
+            />
+          )}
         </div>
       </div>
     </div>

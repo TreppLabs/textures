@@ -4,11 +4,11 @@ API endpoints for image management and rating.
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from typing import List, Optional
 import json
 from models.database import get_db
-from models.schemas import Image as ImageModel
+from models.schemas import Image as ImageModel, Generation, Theme
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -89,6 +89,83 @@ async def get_recent_images(
         return [image_to_response(img) for img in images]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch recent images: {str(e)}")
+
+@router.get("/theme/{theme_id}", response_model=List[ImageResponse])
+async def get_images_by_theme(
+    theme_id: int,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db)
+):
+    """Get all images for a specific theme."""
+    try:
+        # Verify theme exists
+        theme = db.query(Theme).filter(Theme.id == theme_id).first()
+        if not theme:
+            raise HTTPException(status_code=404, detail="Theme not found")
+        
+        # Get generations for this theme
+        generations = db.query(Generation.id).filter(Generation.theme_id == theme_id).all()
+        generation_ids = [g.id for g in generations]
+        
+        if not generation_ids:
+            return []
+        
+        # Get images for these generations
+        images = db.query(ImageModel)\
+            .filter(ImageModel.generation_id.in_(generation_ids))\
+            .order_by(desc(ImageModel.created_at))\
+            .offset(offset)\
+            .limit(limit)\
+            .all()
+        
+        return [image_to_response(img) for img in images]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch theme images: {str(e)}")
+
+@router.get("/top-per-theme", response_model=List[ImageResponse])
+async def get_top_image_per_theme(
+    db: Session = Depends(get_db)
+):
+    """Get the top-rated image from each theme (or most recent if no ratings)."""
+    try:
+        # Get all themes
+        themes = db.query(Theme).all()
+        top_images = []
+        
+        for theme in themes:
+            # Get generations for this theme
+            generations = db.query(Generation.id).filter(Generation.theme_id == theme.id).all()
+            generation_ids = [g.id for g in generations]
+            
+            if not generation_ids:
+                continue
+            
+            # Try to get highest rated image first
+            top_image = db.query(ImageModel)\
+                .filter(ImageModel.generation_id.in_(generation_ids))\
+                .filter(ImageModel.rating.isnot(None))\
+                .order_by(desc(ImageModel.rating), desc(ImageModel.created_at))\
+                .first()
+            
+            # If no rated images, get most recent
+            if not top_image:
+                top_image = db.query(ImageModel)\
+                    .filter(ImageModel.generation_id.in_(generation_ids))\
+                    .order_by(desc(ImageModel.created_at))\
+                    .first()
+            
+            if top_image:
+                top_images.append(image_to_response(top_image))
+        
+        # Sort by rating (highest first), then by creation date
+        top_images.sort(key=lambda x: (x.rating or 0, x.created_at), reverse=True)
+        
+        return top_images
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch top images: {str(e)}")
 
 @router.get("/{image_id}", response_model=ImageResponse)
 async def get_image(image_id: int, db: Session = Depends(get_db)):

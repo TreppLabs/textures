@@ -4,7 +4,7 @@ API endpoints for texture generation.
 
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from models.database import get_db
 from models.schemas import Theme, Generation, Image
 from core.openai_client import OpenAIClient
@@ -13,8 +13,27 @@ from core.keyword_extractor import KeywordExtractor
 from pydantic import BaseModel
 import os
 import httpx
+import asyncio
 from datetime import datetime
 import json
+import logging
+from pathlib import Path
+
+# Set up logging to both console and file
+_log_dir = Path(__file__).parent.parent.parent.parent / "logs"
+_log_dir.mkdir(exist_ok=True)
+_log_file = _log_dir / "backend.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(_log_file),
+        logging.StreamHandler()  # Also log to console
+    ]
+)
+logger = logging.getLogger(__name__)
+logger.info(f"Logging to file: {_log_file}")
 
 router = APIRouter()
 
@@ -22,8 +41,8 @@ router = APIRouter()
 class GenerationRequest(BaseModel):
     theme_id: int
     num_variations: int = 4
-    size: str = "1024x1024"
-    quality: str = "standard"
+    size: str = "1024x1024"  # DALL-E 3 minimum size
+    quality: str = "standard"  # Use "standard" for faster generation (not "hd")
 
 class GenerationResponse(BaseModel):
     generation_id: int
@@ -56,13 +75,13 @@ async def generate_textures(
             )
         
         # Get theme from database
-        print(f"Looking for theme_id: {request.theme_id}")
+        logger.info(f"Looking for theme_id: {request.theme_id}")
         theme = db.query(Theme).filter(Theme.id == request.theme_id).first()
         if not theme:
-            print(f"Theme {request.theme_id} not found in database")
+            logger.error(f"Theme {request.theme_id} not found in database")
             raise HTTPException(status_code=404, detail="Theme not found")
         
-        print(f"Found theme: {theme.name} with prompt: {theme.base_prompt}")
+        logger.info(f"Found theme: {theme.name} with prompt: {theme.base_prompt}")
         base_prompt = theme.base_prompt
         
         # Initialize components
@@ -104,19 +123,19 @@ async def generate_textures(
             # Go up from backend/src/api to project root
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
             images_dir = os.path.join(project_root, images_dir.lstrip("./"))
-        print(f"Images directory: {images_dir}")
+        logger.info(f"Images directory: {images_dir}")
         
         theme_dir = os.path.join(images_dir, f"theme_{request.theme_id}")
         gen_dir = os.path.join(theme_dir, f"gen_{generation.id}")
         os.makedirs(gen_dir, exist_ok=True)
         
-        # Generate images using OpenAI
-        print(f"Starting OpenAI generation for {len(prompt_variations)} variations")
-        generated_images = []
-        for i, prompt in enumerate(prompt_variations):
+        # Helper function to generate a single image (runs in thread pool)
+        def generate_single_image(image_index: int, prompt: str, total_count: int) -> Optional[dict]:
+            """Generate and save a single image. Returns image dict or None on error."""
             try:
-                print(f"Generating image {i+1}/{len(prompt_variations)} with prompt: {prompt[:50]}...")
-                # Generate image via OpenAI
+                logger.info(f"Generating image {image_index}/{total_count} with prompt: {prompt[:80]}...")
+                
+                # Generate image via OpenAI (this is synchronous, so we'll run it in a thread)
                 variations = openai_client.generate_texture_variations(
                     base_prompt=prompt,
                     num_variations=1,
@@ -125,83 +144,123 @@ async def generate_textures(
                 )
                 
                 if not variations:
-                    print(f"No variations returned for image {i+1}")
-                    continue
+                    logger.error(f"No variations returned for image {image_index}")
+                    return None
                 
                 image_data = variations[0]
                 image_url = image_data["image_url"]
-                print(f"Got image URL for image {i+1}: {image_url[:50]}...")
+                logger.info(f"Got image URL for image {image_index}: {image_url[:50]}...")
                 
                 # Download the image (using sync httpx)
-                print(f"Downloading image {i+1} from OpenAI...")
-                print(f"Image URL: {image_url}")
-                
-                with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+                logger.info(f"Downloading image {image_index} from OpenAI...")
+                with httpx.Client(timeout=60.0, follow_redirects=True) as client:
                     response = client.get(image_url)
-                    print(f"Download response status for image {i+1}: {response.status_code}")
+                    logger.info(f"Download response status for image {image_index}: {response.status_code}")
                     
-                    if response.status_code == 200:
-                        # Save image to disk
-                        filename = f"texture_{generation.id}_{i+1}.png"
-                        file_path = os.path.join(gen_dir, filename)
-                        print(f"Saving image {i+1} to: {file_path}")
-                        print(f"Directory exists? {os.path.exists(gen_dir)}")
-                        print(f"Full path: {os.path.abspath(file_path)}")
+                    if response.status_code != 200:
+                        logger.error(f"Failed to download image {image_index}. Status: {response.status_code}")
+                        logger.error(f"Response text: {response.text[:200]}")
+                        return None
+                    
+                    # Save image to disk
+                    filename = f"texture_{generation.id}_{image_index}.png"
+                    file_path = os.path.join(gen_dir, filename)
+                    logger.info(f"Saving image {image_index} to: {file_path}")
+                    
+                    try:
+                        with open(file_path, "wb") as f:
+                            f.write(response.content)
                         
-                        try:
-                            with open(file_path, "wb") as f:
-                                f.write(response.content)
-                            
-                            file_size = os.path.getsize(file_path)
-                            print(f"Image {i+1} saved successfully! File size: {file_size} bytes")
-                            
-                            # Verify file was written
-                            if not os.path.exists(file_path):
-                                print(f"ERROR: File was not created at {file_path}")
-                                continue
-                        except Exception as save_error:
-                            print(f"ERROR saving file: {str(save_error)}")
-                            import traceback
-                            traceback.print_exc()
-                            continue
+                        file_size = os.path.getsize(file_path)
+                        logger.info(f"Image {image_index} saved successfully! File size: {file_size} bytes")
                         
-                        # Store relative path for serving
-                        relative_path = f"theme_{request.theme_id}/gen_{generation.id}/{filename}"
-                        
-                        # Extract keywords from prompt
-                        keywords = keyword_extractor.extract_keywords(prompt)
-                        
-                        # Create image record in database
-                        image_record = Image(
-                            generation_id=generation.id,
-                            filename=filename,
-                            file_path=relative_path,
-                            prompt=prompt,
-                            keywords=json.dumps(keywords),
-                            variation_params=json.dumps(image_data.get("variation_params", {}))
-                        )
-                        db.add(image_record)
-                        db.commit()
-                        db.refresh(image_record)
-                        print(f"Image {i+1} record created in database with ID: {image_record.id}")
-                        
-                        generated_images.append({
-                            "id": image_record.id,
-                            "filename": image_record.filename,
-                            "file_path": image_record.file_path,
-                            "prompt": image_record.prompt,
-                            "keywords": keywords,
-                            "rating": image_record.rating,
-                            "created_at": image_record.created_at.isoformat() if image_record.created_at else datetime.utcnow().isoformat()
-                        })
-                    else:
-                        print(f"ERROR: Failed to download image {i+1}. Status: {response.status_code}")
-                        print(f"Response text: {response.text[:200]}")
-                        
+                        if not os.path.exists(file_path):
+                            logger.error(f"ERROR: File was not created at {file_path}")
+                            return None
+                    except Exception as save_error:
+                        logger.error(f"ERROR saving file: {str(save_error)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        return None
+                    
+                    # Store relative path for serving
+                    relative_path = f"theme_{request.theme_id}/gen_{generation.id}/{filename}"
+                    
+                    # Extract keywords from prompt
+                    keywords = keyword_extractor.extract_keywords(prompt)
+                    
+                    # Return image data (we'll save to DB after all images are generated)
+                    return {
+                        "filename": filename,
+                        "file_path": relative_path,
+                        "prompt": prompt,
+                        "keywords": keywords,
+                        "variation_params": image_data.get("variation_params", {}),
+                        "image_index": image_index
+                    }
+                    
             except Exception as e:
                 import traceback
-                print(f"Error generating image {i+1}: {str(e)}")
-                print(traceback.format_exc())
+                logger.error(f"Error generating image {image_index}: {str(e)}")
+                logger.error(traceback.format_exc())
+                return None
+        
+        # Generate all images in parallel
+        logger.info(f"Starting parallel OpenAI generation for {len(prompt_variations)} variations")
+        
+        # Run all image generations in parallel using asyncio
+        loop = asyncio.get_event_loop()
+        total_count = len(prompt_variations)
+        tasks = [
+            loop.run_in_executor(None, generate_single_image, i+1, prompt, total_count)
+            for i, prompt in enumerate(prompt_variations)
+        ]
+        
+        # Wait for all images to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results and save to database
+        generated_images = []
+        for i, result in enumerate(results):
+            image_index = i + 1  # 1-based index for logging
+            if isinstance(result, Exception):
+                logger.error(f"Exception in image {image_index} generation: {str(result)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                continue
+            
+            if result is None:
+                logger.warning(f"Image {image_index} generation returned None")
+                continue
+            
+            # Save to database
+            try:
+                image_record = Image(
+                    generation_id=generation.id,
+                    filename=result["filename"],
+                    file_path=result["file_path"],
+                    prompt=result["prompt"],
+                    keywords=json.dumps(result["keywords"]),
+                    variation_params=json.dumps(result["variation_params"])
+                )
+                db.add(image_record)
+                db.commit()
+                db.refresh(image_record)
+                logger.info(f"Image {image_index} record created in database with ID: {image_record.id}")
+                
+                generated_images.append({
+                    "id": image_record.id,
+                    "filename": image_record.filename,
+                    "file_path": image_record.file_path,
+                    "prompt": image_record.prompt,
+                    "keywords": result["keywords"],
+                    "rating": image_record.rating,
+                    "created_at": image_record.created_at.isoformat() if image_record.created_at else datetime.utcnow().isoformat()
+                })
+            except Exception as db_error:
+                logger.error(f"Error saving image {image_index} to database: {str(db_error)}")
+                import traceback
+                logger.error(traceback.format_exc())
                 continue
         
         if not generated_images:
@@ -218,9 +277,10 @@ async def generate_textures(
         raise
     except Exception as e:
         import traceback
-        print(f"Error in generate_textures: {str(e)}")
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Failed to generate textures: {str(e)}")
+        error_msg = f"Failed to generate textures: {str(e)}"
+        logger.error(error_msg)
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @router.get("/status/{generation_id}", response_model=dict)
 async def get_generation_status(

@@ -17,6 +17,7 @@ export default function GalleryPage() {
   const [images, setImages] = useState<Image[]>([]);
   const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'top-per-theme' | 'all'>('top-per-theme');
   const [filters, setFilters] = useState({
     minRating: 0,
     searchTerm: '',
@@ -25,7 +26,7 @@ export default function GalleryPage() {
 
   useEffect(() => {
     loadImages();
-  }, []);
+  }, [viewMode]);
 
   useEffect(() => {
     applyFilters();
@@ -33,7 +34,11 @@ export default function GalleryPage() {
 
   const loadImages = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/images`);
+      setIsLoading(true);
+      const endpoint = viewMode === 'top-per-theme' 
+        ? '/api/images/top-per-theme'
+        : '/api/images';
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`);
       if (response.ok) {
         const data = await response.json();
         setImages(data);
@@ -118,11 +123,14 @@ export default function GalleryPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Gallery</h1>
               <p className="text-gray-600">
-                Browse and rate all generated textures ({filteredImages.length} images)
+                {viewMode === 'top-per-theme' 
+                  ? `Top image from each theme (${filteredImages.length} images)`
+                  : `All generated textures (${filteredImages.length} images)`
+                }
               </p>
             </div>
             <Link 
@@ -131,6 +139,31 @@ export default function GalleryPage() {
             >
               ← Back to Dashboard
             </Link>
+          </div>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center space-x-4 bg-white p-4 rounded-lg shadow-sm">
+            <span className="text-sm font-medium text-gray-700">View:</span>
+            <button
+              onClick={() => setViewMode('top-per-theme')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'top-per-theme'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Top per Theme
+            </button>
+            <button
+              onClick={() => setViewMode('all')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All Images
+            </button>
           </div>
         </div>
 

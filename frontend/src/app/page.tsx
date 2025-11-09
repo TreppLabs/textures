@@ -128,7 +128,7 @@ export default function Dashboard() {
             Textures Generator
           </h1>
           <p className="text-gray-600">
-            Human-in-the-loop texture generation with AI-powered prompt evolution
+            Create laser-cuttable black and white textures. Each theme aims to produce one favorite image.
           </p>
         </div>
 
