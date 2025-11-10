@@ -5,13 +5,27 @@ Rating analysis and pattern recognition for prompt improvement.
 from typing import List, Dict, Any
 from collections import Counter, defaultdict
 import statistics
+from core.constants import (
+    HIGH_RATING_THRESHOLD,
+    MIN_SAMPLES_FOR_ANALYSIS,
+    MIN_DATA_SIZE_FOR_HIGH_CONFIDENCE,
+    MIN_DATA_SIZE_FOR_MEDIUM_CONFIDENCE,
+    HIGH_SUCCESS_RATE_THRESHOLD,
+    MEDIUM_SUCCESS_RATE_THRESHOLD,
+    EXCELLENT_SUCCESS_RATE,
+    EXCELLENT_AVG_RATING,
+    GOOD_SUCCESS_RATE,
+    GOOD_AVG_RATING,
+    FAIR_SUCCESS_RATE,
+    FAIR_AVG_RATING,
+)
 
 class RatingAnalyzer:
     """Analyze ratings to identify successful patterns and suggest improvements."""
     
     def __init__(self):
-        self.min_rating_for_success = 4
-        self.min_samples_for_analysis = 3
+        self.min_rating_for_success = HIGH_RATING_THRESHOLD
+        self.min_samples_for_analysis = MIN_SAMPLES_FOR_ANALYSIS
     
     def analyze_theme_performance(self, theme_data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -34,7 +48,7 @@ class RatingAnalyzer:
         # Basic statistics
         avg_rating = statistics.mean(ratings)
         median_rating = statistics.median(ratings)
-        high_rated_count = sum(1 for r in ratings if r >= self.min_rating_for_success)
+        high_rated_count = sum(1 for r in ratings if r >= HIGH_RATING_THRESHOLD)
         success_rate = high_rated_count / len(ratings)
         
         # Rating distribution
@@ -82,9 +96,9 @@ class RatingAnalyzer:
         # Calculate effectiveness for each keyword
         effectiveness = {}
         for keyword, ratings in keyword_stats.items():
-            if len(ratings) >= self.min_samples_for_analysis:
+            if len(ratings) >= MIN_SAMPLES_FOR_ANALYSIS:
                 avg_rating = statistics.mean(ratings)
-                high_rated_count = sum(1 for r in ratings if r >= self.min_rating_for_success)
+                high_rated_count = sum(1 for r in ratings if r >= HIGH_RATING_THRESHOLD)
                 success_rate = high_rated_count / len(ratings)
                 
                 effectiveness[keyword] = {
@@ -205,20 +219,20 @@ class RatingAnalyzer:
     
     def _get_performance_level(self, success_rate: float, avg_rating: float) -> str:
         """Determine performance level based on success rate and average rating."""
-        if success_rate >= 0.7 and avg_rating >= 4.0:
+        if success_rate >= EXCELLENT_SUCCESS_RATE and avg_rating >= EXCELLENT_AVG_RATING:
             return "excellent"
-        elif success_rate >= 0.5 and avg_rating >= 3.5:
+        elif success_rate >= GOOD_SUCCESS_RATE and avg_rating >= GOOD_AVG_RATING:
             return "good"
-        elif success_rate >= 0.3 and avg_rating >= 3.0:
+        elif success_rate >= FAIR_SUCCESS_RATE and avg_rating >= FAIR_AVG_RATING:
             return "fair"
         else:
             return "poor"
     
     def _calculate_confidence(self, sample_size: int, success_rate: float) -> str:
         """Calculate confidence level for keyword analysis."""
-        if sample_size >= 10 and success_rate > 0.7:
+        if sample_size >= MIN_DATA_SIZE_FOR_HIGH_CONFIDENCE and success_rate > HIGH_SUCCESS_RATE_THRESHOLD:
             return "high"
-        elif sample_size >= 5 and success_rate > 0.5:
+        elif sample_size >= MIN_DATA_SIZE_FOR_MEDIUM_CONFIDENCE and success_rate > MEDIUM_SUCCESS_RATE_THRESHOLD:
             return "medium"
         else:
             return "low"
@@ -243,8 +257,8 @@ class RatingAnalyzer:
     def _extract_keywords_from_prompt(self, prompt: str) -> List[str]:
         """Extract ##keywords from a prompt."""
         import re
-        keyword_pattern = r'##(\w+)'
-        return re.findall(keyword_pattern, prompt)
+        from core.constants import KEYWORD_PATTERN
+        return re.findall(KEYWORD_PATTERN, prompt)
     
     def _assess_suggestion_confidence(
         self, 
@@ -252,6 +266,7 @@ class RatingAnalyzer:
         analysis_quality: str
     ) -> str:
         """Assess confidence level for suggestions."""
+        # Use original thresholds for suggestion confidence (20 for high, 10 for medium)
         if data_size >= 20 and analysis_quality == "high":
             return "high"
         elif data_size >= 10 and analysis_quality in ["high", "medium"]:

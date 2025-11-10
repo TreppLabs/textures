@@ -5,11 +5,15 @@ OpenAI API client for texture generation.
 import openai
 import os
 import json
+import logging
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from .structure_prompt import load_structure_prompt, combine_prompts
+from .constants import MAX_VARIATIONS, DEFAULT_IMAGE_SIZE, DEFAULT_QUALITY
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class OpenAIClient:
     """Client for interacting with OpenAI API for texture generation."""
@@ -23,8 +27,8 @@ class OpenAIClient:
         self, 
         base_prompt: str, 
         num_variations: int = 4,
-        size: str = "1024x1024",
-        quality: str = "standard"
+        size: str = DEFAULT_IMAGE_SIZE,
+        quality: str = DEFAULT_QUALITY
     ) -> List[Dict[str, Any]]:
         """
         Generate multiple texture variations from a base prompt.
@@ -38,8 +42,8 @@ class OpenAIClient:
         Returns:
             List of dictionaries containing image data and metadata
         """
-        if num_variations > 6:
-            num_variations = 6
+        if num_variations > MAX_VARIATIONS:
+            num_variations = MAX_VARIATIONS
         
         variations = []
         
@@ -80,8 +84,8 @@ class OpenAIClient:
                 
             except Exception as e:
                 import traceback
-                print(f"Error generating variation {i}: {str(e)}")
-                print(traceback.format_exc())
+                logger.error(f"Error generating variation {i}: {str(e)}")
+                logger.debug(traceback.format_exc())
                 continue
         
         return variations
@@ -108,21 +112,6 @@ class OpenAIClient:
         else:
             return base_prompt
     
-    def extract_keywords(self, prompt: str) -> List[str]:
-        """
-        Extract ##keywords from a prompt.
-        
-        Args:
-            prompt: The prompt text to analyze
-            
-        Returns:
-            List of keywords found in the prompt
-        """
-        import re
-        keyword_pattern = r'##(\w+)'
-        keywords = re.findall(keyword_pattern, prompt)
-        return keywords
-    
     def analyze_prompt_effectiveness(self, prompt: str, rating: int) -> Dict[str, Any]:
         """
         Analyze prompt effectiveness based on rating.
@@ -134,12 +123,16 @@ class OpenAIClient:
         Returns:
             Dictionary with analysis results
         """
-        keywords = self.extract_keywords(prompt)
+        from core.keyword_extractor import KeywordExtractor
+        from core.constants import HIGH_RATING_THRESHOLD
+        
+        extractor = KeywordExtractor()
+        keywords = extractor.extract_keywords(prompt)
         
         return {
             "keywords": keywords,
             "rating": rating,
-            "is_high_rated": rating >= 4,
+            "is_high_rated": rating >= HIGH_RATING_THRESHOLD,
             "keyword_count": len(keywords),
             "prompt_length": len(prompt)
         }

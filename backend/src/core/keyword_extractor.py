@@ -5,6 +5,12 @@ Keyword extraction and analysis utilities.
 import re
 from typing import List, Dict, Any
 from collections import Counter
+from core.constants import (
+    KEYWORD_PATTERN,
+    STOP_WORDS,
+    MIN_WORD_LENGTH,
+    HIGH_RATING_THRESHOLD,
+)
 
 class KeywordExtractor:
     """Extract and analyze keywords from prompts."""
@@ -30,8 +36,7 @@ class KeywordExtractor:
         Returns:
             List of keywords found in the prompt
         """
-        keyword_pattern = r'##(\w+)'
-        keywords = re.findall(keyword_pattern, prompt)
+        keywords = re.findall(KEYWORD_PATTERN, prompt)
         return keywords
     
     def extract_all_keywords(self, prompt: str) -> Dict[str, List[str]]:
@@ -49,7 +54,10 @@ class KeywordExtractor:
         
         # Extract descriptive words (simple approach)
         words = re.findall(r'\b\w+\b', prompt.lower())
-        descriptive_words = [word for word in words if len(word) > 3 and word not in ['with', 'and', 'the', 'for', 'are', 'this', 'that']]
+        descriptive_words = [
+            word for word in words 
+            if len(word) > MIN_WORD_LENGTH and word not in STOP_WORDS
+        ]
         
         return {
             "tagged": tagged_keywords,
@@ -116,7 +124,7 @@ class KeywordExtractor:
         for keyword, ratings in keyword_ratings.items():
             if ratings:
                 avg_rating = sum(ratings) / len(ratings)
-                high_rated_count = sum(1 for r in ratings if r >= 4)
+                high_rated_count = sum(1 for r in ratings if r >= HIGH_RATING_THRESHOLD)
                 success_rate = high_rated_count / len(ratings) if ratings else 0
                 
                 effectiveness[keyword] = {

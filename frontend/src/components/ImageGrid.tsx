@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { RatingStars } from './RatingStars';
 
 interface Image {
@@ -21,7 +21,19 @@ interface ImageGridProps {
 export function ImageGrid({ images, showRatings = false, onRatingChange }: ImageGridProps) {
   const [ratingImages, setRatingImages] = useState<{ [key: number]: number }>({});
 
+  // Sync ratings from props to local state
+  useEffect(() => {
+    const ratings: { [key: number]: number } = {};
+    images.forEach(image => {
+      if (image.rating !== null && image.rating !== undefined) {
+        ratings[image.id] = image.rating;
+      }
+    });
+    setRatingImages(ratings);
+  }, [images]);
+
   const handleRatingChange = (imageId: number, rating: number) => {
+    // Optimistic update
     setRatingImages(prev => ({ ...prev, [imageId]: rating }));
     if (onRatingChange) {
       onRatingChange(imageId, rating);

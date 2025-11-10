@@ -17,16 +17,29 @@ backend/.Python
 backend/pip-log.txt
 backend/pip-delete-this-directory.txt
 
-# Database
+# Database - all database files and related data
+data/database/
 data/database/*.db
 data/database/*.db-journal
 data/database/*.db-wal
 data/database/*.db-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 
-# Generated images (optional - may want to commit sample images)
+# Generated images and user data - never commit these
 data/images/
 backend/data/images/
 data/exports/
+**/images/
+**/exports/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
 
 # IDE and editor files
 .vscode/

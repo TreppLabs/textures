@@ -76,7 +76,8 @@ class PromptEngine:
         if not theme_history:
             return {}
         
-        high_rated_images = [img for img in theme_history if img.get('rating', 0) >= 4]
+        from core.constants import HIGH_RATING_THRESHOLD
+        high_rated_images = [img for img in theme_history if img.get('rating', 0) >= HIGH_RATING_THRESHOLD]
         
         if not high_rated_images:
             return {}
