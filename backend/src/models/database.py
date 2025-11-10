@@ -3,22 +3,25 @@ Database configuration and session management.
 """
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Database URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/database/textures.db")
+# If TESTING environment variable is set, force in-memory database
+if os.getenv("TESTING") == "true":
+    DATABASE_URL = "sqlite:///:memory:"
+else:
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/database/textures.db")
 
 # Convert relative path to absolute path
 if DATABASE_URL.startswith("sqlite:///./"):
     # Get the absolute path to the project root
-    import os
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-    db_path = os.path.join(project_root, "data", "database", "textures.db")
+    project_root = Path(__file__).parent.parent.parent.parent
+    db_path = project_root / "data" / "database" / "textures.db"
     DATABASE_URL = f"sqlite:///{db_path}"
 
 # Create SQLAlchemy engine
@@ -34,7 +37,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db():
-    """Dependency to get database session."""
+    """
+    Dependency to get database session.
+    
+    Yields:
+        Database session that will be automatically closed after use.
+    """
     db = SessionLocal()
     try:
         yield db
@@ -42,5 +50,9 @@ def get_db():
         db.close()
 
 def create_tables():
-    """Create all database tables."""
+    """
+    Create all database tables.
+    
+    This should be called during application initialization.
+    """
     Base.metadata.create_all(bind=engine)

@@ -21,13 +21,19 @@ from models.schemas import Theme, Generation, Image
 
 @pytest.fixture
 def client(test_db):
-    """Create a test client with database override."""
+    """
+    Create a test client with database override.
+    
+    This ensures all API calls use the test database, never production.
+    """
     def override_get_db():
         try:
             yield test_db
         finally:
+            # Don't close test_db here - it's managed by the test_db fixture
             pass
     
+    # Clear any existing overrides first
     app.dependency_overrides = {}
     from models.database import get_db
     app.dependency_overrides[get_db] = override_get_db
@@ -35,6 +41,7 @@ def client(test_db):
     client = TestClient(app)
     yield client
     
+    # Clean up: remove dependency overrides after test
     app.dependency_overrides.clear()
 
 

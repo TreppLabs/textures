@@ -9,6 +9,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+# CRITICAL: Set test environment variable BEFORE importing database module
+# This ensures tests never use the production database
+os.environ["TESTING"] = "true"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
 # Import models and database setup
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../src'))
@@ -19,8 +24,13 @@ from models.schemas import Theme, Generation, Image, Keyword, PromptHistory
 
 @pytest.fixture(scope="function")
 def test_db():
-    """Create a temporary in-memory SQLite database for testing."""
-    # Create in-memory database
+    """
+    Create a temporary in-memory SQLite database for testing.
+    
+    This fixture ensures tests use an isolated database and never touch production.
+    """
+    # Create in-memory database with a unique name to ensure isolation
+    # Using :memory: creates a new database for each connection
     engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -39,8 +49,12 @@ def test_db():
     try:
         yield db
     finally:
+        # Clean up: rollback any uncommitted changes
+        db.rollback()
         db.close()
+        # Drop all tables to ensure clean state
         Base.metadata.drop_all(bind=engine)
+        engine.dispose()
 
 
 @pytest.fixture
@@ -138,14 +152,7 @@ def mock_openai_client(monkeypatch):
 def theme_manager(test_db):
     """Create a ThemeManager instance with test database."""
     from core.theme_manager import ThemeManager
-    manager = ThemeManager()
-    # Override the db session with our test database
-    # Note: ThemeManager will try to close the db in finally blocks,
-    # but we prevent that by not calling close on the test_db
-    original_close = test_db.close
-    test_db.close = lambda: None  # Prevent closing test_db
-    manager.db = test_db
+    # ThemeManager now requires db session in constructor
+    manager = ThemeManager(test_db)
     yield manager
-    # Restore original close method
-    test_db.close = original_close
 

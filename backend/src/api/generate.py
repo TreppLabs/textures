@@ -10,11 +10,24 @@ from models.schemas import Theme, Generation, Image
 from core.openai_client import OpenAIClient
 from core.prompt_engine import PromptEngine
 from core.keyword_extractor import KeywordExtractor
+from core.utils import resolve_path, get_utc_now
+from core.constants import (
+    MIN_VARIATIONS,
+    MAX_VARIATIONS,
+    DEFAULT_VARIATIONS,
+    DEFAULT_IMAGE_SIZE,
+    VALID_IMAGE_SIZES,
+    DEFAULT_QUALITY,
+    VALID_QUALITIES,
+)
+from .generate_helpers import (
+    prepare_generation_directory,
+    download_and_save_image,
+    create_image_record_data,
+)
 from pydantic import BaseModel
 import os
-import httpx
 import asyncio
-from datetime import datetime
 import json
 import logging
 from pathlib import Path
@@ -40,9 +53,9 @@ router = APIRouter()
 # Pydantic models for request/response
 class GenerationRequest(BaseModel):
     theme_id: int
-    num_variations: int = 4
-    size: str = "1024x1024"  # DALL-E 3 minimum size
-    quality: str = "standard"  # Use "standard" for faster generation (not "hd")
+    num_variations: int = DEFAULT_VARIATIONS
+    size: str = DEFAULT_IMAGE_SIZE  # DALL-E 3 minimum size
+    quality: str = DEFAULT_QUALITY  # Use "standard" for faster generation (not "hd")
 
 class GenerationResponse(BaseModel):
     generation_id: int
@@ -58,14 +71,23 @@ async def generate_textures(
     """Generate texture variations for a theme."""
     try:
         # Validate request
-        if not (1 <= request.num_variations <= 6):
-            raise HTTPException(status_code=400, detail="Number of variations must be between 1 and 6")
+        if not (MIN_VARIATIONS <= request.num_variations <= MAX_VARIATIONS):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Number of variations must be between {MIN_VARIATIONS} and {MAX_VARIATIONS}"
+            )
         
-        if request.size not in ["1024x1024", "1792x1024", "1024x1792"]:
-            raise HTTPException(status_code=400, detail="Invalid image size")
+        if request.size not in VALID_IMAGE_SIZES:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid image size. Must be one of: {', '.join(VALID_IMAGE_SIZES)}"
+            )
         
-        if request.quality not in ["standard", "hd"]:
-            raise HTTPException(status_code=400, detail="Invalid quality setting")
+        if request.quality not in VALID_QUALITIES:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid quality setting. Must be one of: {', '.join(VALID_QUALITIES)}"
+            )
         
         # Check if OpenAI API key is configured
         if not os.getenv("OPENAI_API_KEY"):
@@ -117,17 +139,15 @@ async def generate_textures(
         db.refresh(generation)
         
         # Prepare image storage directory
-        images_dir = os.getenv("IMAGES_DIR", "./data/images")
-        # Convert to absolute path if relative
-        if not os.path.isabs(images_dir):
-            # Go up from backend/src/api to project root
-            project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-            images_dir = os.path.join(project_root, images_dir.lstrip("./"))
+        images_dir_env = os.getenv("IMAGES_DIR", "./data/images")
+        images_dir = resolve_path(images_dir_env)
         logger.info(f"Images directory: {images_dir}")
         
-        theme_dir = os.path.join(images_dir, f"theme_{request.theme_id}")
-        gen_dir = os.path.join(theme_dir, f"gen_{generation.id}")
-        os.makedirs(gen_dir, exist_ok=True)
+        gen_dir = prepare_generation_directory(
+            images_dir, 
+            request.theme_id, 
+            generation.id
+        )
         
         # Helper function to generate a single image (runs in thread pool)
         def generate_single_image(image_index: int, prompt: str, total_count: int) -> Optional[dict]:
@@ -151,53 +171,27 @@ async def generate_textures(
                 image_url = image_data["image_url"]
                 logger.info(f"Got image URL for image {image_index}: {image_url[:50]}...")
                 
-                # Download the image (using sync httpx)
-                logger.info(f"Downloading image {image_index} from OpenAI...")
-                with httpx.Client(timeout=60.0, follow_redirects=True) as client:
-                    response = client.get(image_url)
-                    logger.info(f"Download response status for image {image_index}: {response.status_code}")
-                    
-                    if response.status_code != 200:
-                        logger.error(f"Failed to download image {image_index}. Status: {response.status_code}")
-                        logger.error(f"Response text: {response.text[:200]}")
-                        return None
-                    
-                    # Save image to disk
-                    filename = f"texture_{generation.id}_{image_index}.png"
-                    file_path = os.path.join(gen_dir, filename)
-                    logger.info(f"Saving image {image_index} to: {file_path}")
-                    
-                    try:
-                        with open(file_path, "wb") as f:
-                            f.write(response.content)
-                        
-                        file_size = os.path.getsize(file_path)
-                        logger.info(f"Image {image_index} saved successfully! File size: {file_size} bytes")
-                        
-                        if not os.path.exists(file_path):
-                            logger.error(f"ERROR: File was not created at {file_path}")
-                            return None
-                    except Exception as save_error:
-                        logger.error(f"ERROR saving file: {str(save_error)}")
-                        import traceback
-                        logger.error(traceback.format_exc())
-                        return None
-                    
-                    # Store relative path for serving
-                    relative_path = f"theme_{request.theme_id}/gen_{generation.id}/{filename}"
-                    
-                    # Extract keywords from prompt
-                    keywords = keyword_extractor.extract_keywords(prompt)
-                    
-                    # Return image data (we'll save to DB after all images are generated)
-                    return {
-                        "filename": filename,
-                        "file_path": relative_path,
-                        "prompt": prompt,
-                        "keywords": keywords,
-                        "variation_params": image_data.get("variation_params", {}),
-                        "image_index": image_index
-                    }
+                # Prepare file paths
+                filename = f"texture_{generation.id}_{image_index}.png"
+                file_path = os.path.join(gen_dir, filename)
+                relative_path = f"theme_{request.theme_id}/gen_{generation.id}/{filename}"
+                
+                # Download and save image
+                if not download_and_save_image(image_url, file_path, image_index):
+                    return None
+                
+                # Extract keywords from prompt
+                keywords = keyword_extractor.extract_keywords(prompt)
+                
+                # Return image data (we'll save to DB after all images are generated)
+                return create_image_record_data(
+                    filename=filename,
+                    relative_path=relative_path,
+                    prompt=prompt,
+                    keywords=keywords,
+                    variation_params=image_data.get("variation_params", {}),
+                    image_index=image_index
+                )
                     
             except Exception as e:
                 import traceback
@@ -255,7 +249,7 @@ async def generate_textures(
                     "prompt": image_record.prompt,
                     "keywords": result["keywords"],
                     "rating": image_record.rating,
-                    "created_at": image_record.created_at.isoformat() if image_record.created_at else datetime.utcnow().isoformat()
+                    "created_at": image_record.created_at.isoformat() if image_record.created_at else get_utc_now().isoformat()
                 })
             except Exception as db_error:
                 logger.error(f"Error saving image {image_index} to database: {str(db_error)}")

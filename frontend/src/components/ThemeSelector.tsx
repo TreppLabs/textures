@@ -16,14 +16,16 @@ interface ThemeSelectorProps {
   onThemeSelect: (theme: Theme) => void;
   onCreateTheme: () => void;
   onThemeCreated?: () => void; // Callback to refresh themes list
+  onThemeDeleted?: () => void; // Callback to refresh themes list after deletion
 }
 
-export function ThemeSelector({ themes, selectedTheme, onThemeSelect, onCreateTheme, onThemeCreated }: ThemeSelectorProps) {
+export function ThemeSelector({ themes, selectedTheme, onThemeSelect, onCreateTheme, onThemeCreated, onThemeDeleted }: ThemeSelectorProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [newThemeName, setNewThemeName] = useState('');
   const [newThemePrompt, setNewThemePrompt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingThemeId, setDeletingThemeId] = useState<number | null>(null);
 
   const handleCreateTheme = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +71,40 @@ export function ThemeSelector({ themes, selectedTheme, onThemeSelect, onCreateTh
     }
   };
 
+  const handleDeleteTheme = async (themeId: number, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent theme selection when clicking delete
+    
+    // No confirmation required as per user request
+    
+    setDeletingThemeId(themeId);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/themes/${themeId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // If the deleted theme was selected, clear selection
+        if (selectedTheme?.id === themeId) {
+          onThemeSelect(null as any);
+        }
+        // Refresh themes list
+        if (onThemeDeleted) {
+          onThemeDeleted();
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to delete theme' }));
+        alert(`Failed to delete theme: ${errorData.error || `Error ${response.status}`}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete theme:', error);
+      alert('Failed to connect to API. Make sure the backend is running at http://localhost:8000');
+    } finally {
+      setDeletingThemeId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Existing Themes */}
@@ -77,13 +113,25 @@ export function ThemeSelector({ themes, selectedTheme, onThemeSelect, onCreateTh
           <div
             key={theme.id}
             onClick={() => onThemeSelect(theme)}
-            className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+            className={`p-4 border-2 rounded-lg cursor-pointer transition-colors relative ${
               selectedTheme?.id === theme.id
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300 bg-white'
             }`}
           >
-            <h3 className="font-semibold text-gray-900 mb-2">{theme.name}</h3>
+            <button
+              onClick={(e) => handleDeleteTheme(theme.id, e)}
+              disabled={deletingThemeId === theme.id}
+              className="absolute top-2 right-2 p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Delete theme and all images"
+            >
+              {deletingThemeId === theme.id ? (
+                <span className="animate-spin">⏳</span>
+              ) : (
+                <span className="text-lg">×</span>
+              )}
+            </button>
+            <h3 className="font-semibold text-gray-900 mb-2 pr-6">{theme.name}</h3>
             <p className="text-sm text-gray-600 mb-2">{theme.description}</p>
             <p className="text-xs text-gray-500 font-mono bg-gray-100 p-2 rounded">
               {theme.base_prompt}

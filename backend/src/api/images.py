@@ -10,7 +10,8 @@ import json
 from models.database import get_db
 from models.schemas import Image as ImageModel, Generation, Theme
 from pydantic import BaseModel
-from datetime import datetime
+from core.utils import get_utc_now
+from core.constants import MIN_RATING, MAX_RATING, DEFAULT_LIMIT, DEFAULT_RECENT_LIMIT
 
 router = APIRouter()
 
@@ -46,12 +47,12 @@ def image_to_response(image: ImageModel) -> ImageResponse:
         prompt=image.prompt,
         keywords=parse_keywords(image.keywords),
         rating=image.rating,
-        created_at=image.created_at.isoformat() if image.created_at else datetime.utcnow().isoformat()
+        created_at=image.created_at.isoformat() if image.created_at else get_utc_now().isoformat()
     )
 
 @router.get("/", response_model=List[ImageResponse])
 async def get_all_images(
-    limit: int = 100,
+    limit: int = DEFAULT_LIMIT,
     offset: int = 0,
     min_rating: Optional[int] = None,
     db: Session = Depends(get_db)
@@ -76,7 +77,7 @@ async def get_all_images(
 
 @router.get("/recent", response_model=List[ImageResponse])
 async def get_recent_images(
-    limit: int = 20,
+    limit: int = DEFAULT_RECENT_LIMIT,
     db: Session = Depends(get_db)
 ):
     """Get recently generated images."""
@@ -93,7 +94,7 @@ async def get_recent_images(
 @router.get("/theme/{theme_id}", response_model=List[ImageResponse])
 async def get_images_by_theme(
     theme_id: int,
-    limit: int = 100,
+    limit: int = DEFAULT_LIMIT,
     offset: int = 0,
     db: Session = Depends(get_db)
 ):
@@ -189,8 +190,11 @@ async def rate_image(
     """Rate an image (1-5 stars)."""
     try:
         # Validate rating
-        if not (1 <= rating_data.rating <= 5):
-            raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+        if not (MIN_RATING <= rating_data.rating <= MAX_RATING):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Rating must be between {MIN_RATING} and {MAX_RATING}"
+            )
         
         # Find the image
         image = db.query(ImageModel).filter(ImageModel.id == image_id).first()

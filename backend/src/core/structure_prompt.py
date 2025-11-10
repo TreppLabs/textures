@@ -2,8 +2,11 @@
 Structure prompt loader for laser-cutting constraints.
 """
 
-import os
+import logging
 from pathlib import Path
+from core.utils import get_project_root
+
+logger = logging.getLogger(__name__)
 
 def load_structure_prompt() -> str:
     """
@@ -12,8 +15,7 @@ def load_structure_prompt() -> str:
     Returns:
         The structure prompt text, or a default if file not found.
     """
-    # Get project root (go up from backend/src/core to project root)
-    project_root = Path(__file__).parent.parent.parent.parent
+    project_root = get_project_root()
     structure_file = project_root / "prompts" / "structure.md"
     
     if structure_file.exists():
@@ -24,10 +26,10 @@ def load_structure_prompt() -> str:
                 # For now, return a simplified version focusing on the key constraints
                 return _extract_structure_description(content)
         except Exception as e:
-            print(f"Error loading structure prompt: {e}")
+            logger.warning(f"Error loading structure prompt: {e}, using default")
             return _get_default_structure_prompt()
     else:
-        print(f"Structure prompt file not found at {structure_file}, using default")
+        logger.info(f"Structure prompt file not found at {structure_file}, using default")
         return _get_default_structure_prompt()
 
 def _extract_structure_description(markdown_content: str) -> str:

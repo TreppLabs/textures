@@ -280,15 +280,22 @@ Given a base prompt, create 4-6 variations by:
 - [x] Implement keyword extraction and tracking
 - [x] Build rating analyzer (backend ready)
 - [x] Rating UI implementation (fully functional)
+- [x] Backend refactoring and code quality improvements
+- [x] Comprehensive backend unit tests (65 tests, all passing)
+- [x] Theme deletion functionality (with cascading deletes)
 - [ ] Create prompt suggestion system (backend ready, needs UI)
 - [ ] Add theme branching (backend ready, needs UI)
 - [ ] Test prompt evolution based on ratings
+- [ ] Continue improving ratings UI and workflow
 
 ### Phase 6: Enhancement & Polish 🔄 NEXT UP
 - [x] Add generation history view (theme-specific galleries)
 - [x] Create gallery with filtering (top-per-theme and all images)
+- [x] Security and privacy review (all sensitive data properly gitignored)
 - [ ] Build keyword analytics dashboard (backend ready, needs UI)
 - [ ] Improve UI/UX based on usage
+- [ ] Frontend refactoring (next session)
+- [ ] Frontend unit tests (next session)
 - [ ] Add export functionality
 - [ ] Documentation and examples
 
@@ -307,7 +314,7 @@ Given a base prompt, create 4-6 variations by:
 - **Full-stack web application** (Next.js + FastAPI)
 - **OpenAI DALL-E 3 integration** with real image generation
 - **Parallel image generation** (4 images simultaneously, ~4x faster)
-- **Theme management** (create, list, view theme-specific galleries)
+- **Theme management** (create, list, view theme-specific galleries, delete with cascading)
 - **Image persistence** (database + file storage, survives server restarts)
 - **Gallery views** (theme-specific, top-per-theme, all images)
 - **Structure prompt system** for laser-cutting constraints (flat 2D, edge connectivity)
@@ -317,23 +324,38 @@ Given a base prompt, create 4-6 variations by:
 - **Rating UI** (fully functional on dashboard, theme pages, and gallery)
 - **Keyword extraction** (backend ready)
 - **Cost transparency** ($0.04 per image, Standard quality)
+- **Backend refactoring** (centralized constants, utilities, improved code organization)
+- **Comprehensive backend testing** (65 unit tests, all passing)
+- **Security review** (all sensitive data properly protected, comprehensive .gitignore)
 
 ### 🔄 In Progress / Next Steps
 
-**Priority 1: Prompt Evolution**
+**Priority 1: Ratings & UI Improvements** (Current Focus)
+- Continue improving ratings UI and user experience
+- Enhance rating workflow and feedback
+- Improve visual design and interactions
+- Better integration of ratings into theme workflow
+
+**Priority 2: Prompt Evolution**
 - Use rating data to influence future prompt variations
 - Implement prompt suggestion system based on high-rated images (backend ready, needs UI)
 - Test and refine prompt evolution algorithm
 
-**Priority 2: Theme Branching**
+**Priority 3: Theme Branching**
 - Add UI for branching themes (backend ready, needs UI)
 - Implement theme lineage tracking
 - Test branching workflow
 
-**Priority 3: Analytics Dashboard**
+**Priority 4: Analytics Dashboard**
 - Build keyword effectiveness visualization
 - Show theme performance statistics
 - Display success rate analysis
+
+**Next Work Session: Frontend Refactoring & Testing**
+- Refactor frontend code for clarity and maintainability
+- Add comprehensive frontend unit tests
+- Improve component organization and reusability
+- Enhance TypeScript type safety
 
 **Future Enhancements**
 - SVG/vector conversion for laser cutting
@@ -365,6 +387,30 @@ Given a base prompt, create 4-6 variations by:
 - Smooth workflow for creating and managing themes
 - Good performance (generation time, UI responsiveness)
 
+## Recent Work (Latest Session)
+
+### Backend Refactoring & Quality Improvements
+- **Centralized constants** (`core/constants.py`) - All magic numbers and strings in one place
+- **Utility functions** (`core/utils.py`) - Path resolution, serialization, datetime helpers
+- **Improved code organization** - Better separation of concerns, helper functions extracted
+- **Enhanced logging** - Replaced print statements with proper logging throughout
+- **Dependency injection** - ThemeManager now uses injected database sessions
+- **Test isolation** - Tests use in-memory database, never touch production data
+
+### Testing Infrastructure
+- **65 comprehensive unit tests** covering all core modules and API endpoints
+- **Test fixtures** properly configured for isolation and cleanup
+- **All tests passing** - Verified after refactoring
+
+### Security & Privacy
+- **Comprehensive .gitignore** - All database files, images, logs, and sensitive data protected
+- **Security review completed** - No hardcoded secrets, proper input validation, SQL injection protection
+- **Privacy verified** - All user data properly excluded from git
+
+### New Features
+- **Theme deletion** - Delete themes and all associated data (generations, images, prompt history)
+- **Cascading deletes** - Proper cleanup of related records
+
 ## Notes
 
 - Keep architecture flexible - expect experimentation and changes
@@ -372,3 +418,4 @@ Given a base prompt, create 4-6 variations by:
 - Focus on the human-in-the-loop workflow quality
 - Document prompt patterns as we discover them
 - This is a creative tool, so UX matters a lot
+- Backend is now well-tested and refactored - ready for frontend improvements

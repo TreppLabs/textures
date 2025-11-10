@@ -166,6 +166,7 @@ export default function Dashboard() {
             onThemeSelect={handleThemeSelect}
             onCreateTheme={() => {/* Theme creation handled in ThemeSelector */}}
             onThemeCreated={loadThemes}
+            onThemeDeleted={loadThemes}
           />
         </div>
 

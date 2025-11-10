@@ -29,18 +29,19 @@ app.add_middleware(
 )
 
 # Mount static files for serving generated images
-images_dir = os.getenv("IMAGES_DIR", "./data/images")
-# Convert to absolute path if relative
-if not os.path.isabs(images_dir):
-    # Go up from backend/src to project root
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    images_dir = os.path.join(project_root, images_dir.lstrip("./"))
-print(f"Static images directory: {images_dir}")
+import logging
+from core.utils import resolve_path
+
+logger = logging.getLogger(__name__)
+
+images_dir_env = os.getenv("IMAGES_DIR", "./data/images")
+images_dir = resolve_path(images_dir_env)
+logger.info(f"Static images directory: {images_dir}")
 if os.path.exists(images_dir):
     app.mount("/images", StaticFiles(directory=images_dir), name="images")
-    print(f"✓ Images mounted at /images")
+    logger.info("✓ Images mounted at /images")
 else:
-    print(f"⚠ Images directory does not exist: {images_dir}")
+    logger.warning(f"⚠ Images directory does not exist: {images_dir}")
 
 @app.get("/")
 async def root():
