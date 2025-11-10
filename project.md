@@ -1,7 +1,9 @@
 # Textures Project Plan
 
 ## Project Overview
-A human-in-the-loop texture generation system that uses AI (OpenAI API with GPT-5/DALL-E) to create, iterate, and refine black and white organic textures. The system enables theme-based prompt evolution through user ratings and feedback.
+A web application for generating black and white texture patterns designed for **laser-cutting projects**. Uses AI (OpenAI DALL-E 3) to create, iterate, and refine textures through a human-in-the-loop workflow. Each theme aims to produce one favorite image suitable for laser cutting.
+
+> **Note**: This project was vibe-coded - built iteratively with rapid experimentation.
 
 ## Project Goals
 1. Generate black and white textures with organic, map-like, and geometric qualities
@@ -237,48 +239,56 @@ Given a base prompt, create 4-6 variations by:
 
 ## Project Phases
 
-### Phase 1: Foundation Setup (Current)
+### Phase 1: Foundation Setup ✅ COMPLETE
 - [x] Create project directory
 - [x] Initialize git repository
 - [x] Create documentation structure
-- [ ] Setup .gitignore and security basics
+- [x] Setup .gitignore and security basics
+- [x] Environment configuration (.env, .env.example)
 
-### Phase 2: Backend Core (Days 1-2)
-- [ ] Initialize Python/FastAPI project
-- [ ] Setup virtual environment
-- [ ] Install dependencies (FastAPI, OpenAI, Pillow, SQLite)
-- [ ] Create database schema
-- [ ] Implement OpenAI client wrapper
-- [ ] Create basic API endpoints (generate, rate)
-- [ ] Test image generation with OpenAI API
+### Phase 2: Backend Core ✅ COMPLETE
+- [x] Initialize Python/FastAPI project
+- [x] Setup virtual environment
+- [x] Install dependencies (FastAPI, OpenAI, Pillow, SQLite, httpx)
+- [x] Create database schema (themes, generations, images, keywords, prompt_history)
+- [x] Implement OpenAI client wrapper with DALL-E 3
+- [x] Create API endpoints (generate, themes, images, analytics)
+- [x] Implement parallel image generation (asyncio)
+- [x] Add comprehensive logging system
+- [x] Structure prompt system for laser-cutting constraints
 
-### Phase 3: Frontend Foundation (Days 2-3)
-- [ ] Initialize Next.js project
-- [ ] Setup basic routing structure
-- [ ] Create theme selector UI
-- [ ] Implement image grid component
-- [ ] Add star rating component
-- [ ] Connect to backend API
+### Phase 3: Frontend Foundation ✅ COMPLETE
+- [x] Initialize Next.js project (TypeScript, Tailwind CSS)
+- [x] Setup basic routing structure
+- [x] Create theme selector UI
+- [x] Implement image grid component
+- [x] Add star rating component (UI ready, backend implemented)
+- [x] Connect to backend API
+- [x] Theme-specific galleries
+- [x] Top-per-theme gallery view
 
-### Phase 4: Core Workflow (Days 3-5)
-- [ ] Implement theme creation
-- [ ] Build generation session flow
-- [ ] Connect rating system to database
-- [ ] Test full workflow: create theme → generate → rate
-- [ ] Basic prompt variation engine
+### Phase 4: Core Workflow ✅ COMPLETE
+- [x] Implement theme creation
+- [x] Build generation session flow
+- [x] Connect rating system to database (API ready)
+- [x] Test full workflow: create theme → generate → rate
+- [x] Basic prompt variation engine
+- [x] Two-part prompt system (structure + theme)
+- [x] Image persistence (database + file storage)
 
-### Phase 5: Intelligent Iteration (Days 5-7)
-- [ ] Implement keyword extraction and tracking
-- [ ] Build rating analyzer
-- [ ] Create prompt suggestion system
-- [ ] Add theme branching
+### Phase 5: Intelligent Iteration 🔄 IN PROGRESS
+- [x] Implement keyword extraction and tracking
+- [x] Build rating analyzer (backend ready)
+- [x] Rating UI implementation (fully functional)
+- [ ] Create prompt suggestion system (backend ready, needs UI)
+- [ ] Add theme branching (backend ready, needs UI)
 - [ ] Test prompt evolution based on ratings
 
-### Phase 6: Enhancement & Polish (Days 7-10)
-- [ ] Add generation history view
-- [ ] Create gallery with filtering
-- [ ] Build keyword analytics dashboard
-- [ ] Improve UI/UX
+### Phase 6: Enhancement & Polish 🔄 NEXT UP
+- [x] Add generation history view (theme-specific galleries)
+- [x] Create gallery with filtering (top-per-theme and all images)
+- [ ] Build keyword analytics dashboard (backend ready, needs UI)
+- [ ] Improve UI/UX based on usage
 - [ ] Add export functionality
 - [ ] Documentation and examples
 
@@ -291,37 +301,61 @@ Given a base prompt, create 4-6 variations by:
 - [ ] Export theme configurations
 - [ ] API usage tracking and budgets
 
-## Immediate Next Steps
+## Current Status
 
-### Step 1: Environment Setup
-1. Create `.gitignore` file
-2. Create `.env.example` template
-3. Setup Python virtual environment
-4. Initialize Next.js project in `frontend/`
-5. Initialize Python project in `backend/`
+### ✅ Completed Features
+- **Full-stack web application** (Next.js + FastAPI)
+- **OpenAI DALL-E 3 integration** with real image generation
+- **Parallel image generation** (4 images simultaneously, ~4x faster)
+- **Theme management** (create, list, view theme-specific galleries)
+- **Image persistence** (database + file storage, survives server restarts)
+- **Gallery views** (theme-specific, top-per-theme, all images)
+- **Structure prompt system** for laser-cutting constraints (flat 2D, edge connectivity)
+- **Two-part prompts** (structure + theme, theme-first ordering)
+- **Comprehensive logging** (logs/backend.log)
+- **Rating API** (backend + frontend UI complete)
+- **Rating UI** (fully functional on dashboard, theme pages, and gallery)
+- **Keyword extraction** (backend ready)
+- **Cost transparency** ($0.04 per image, Standard quality)
 
-### Step 2: Database Schema
-1. Design SQLite schema
-2. Create migration script
-3. Add sample data for testing
-4. Document database structure
+### 🔄 In Progress / Next Steps
 
-### Step 3: OpenAI Integration
-1. Setup OpenAI API client
-2. Test DALL-E 3 image generation
-3. Experiment with prompts for B&W textures
-4. Document successful prompt patterns
-5. Test variation strategies
+**Priority 1: Prompt Evolution**
+- Use rating data to influence future prompt variations
+- Implement prompt suggestion system based on high-rated images (backend ready, needs UI)
+- Test and refine prompt evolution algorithm
 
-## Open Questions to Explore
+**Priority 2: Theme Branching**
+- Add UI for branching themes (backend ready, needs UI)
+- Implement theme lineage tracking
+- Test branching workflow
 
-1. **OpenAI API**: Which model/endpoint? DALL-E 3 or GPT-5 with vision?
-2. **Image Size**: What resolution? (1024x1024 standard? Higher for laser cutting?)
-3. **Variation Strategy**: How much variation between the 4-6 images?
-4. **Theme Branching**: Simple fork or inherit prompt elements?
-5. **Keyword Weighting**: Manual or automatic based on ratings?
-6. **B&W Conversion**: Request B&W from API or post-process?
-7. **SVG Conversion**: Which tool/library for future vectorization?
+**Priority 3: Analytics Dashboard**
+- Build keyword effectiveness visualization
+- Show theme performance statistics
+- Display success rate analysis
+
+**Future Enhancements**
+- SVG/vector conversion for laser cutting
+- Advanced prompt engineering
+- Batch generation modes
+- Export functionality
+
+## Resolved Questions
+
+1. **OpenAI API**: ✅ DALL-E 3 (Standard quality: $0.04/image, HD: $0.08/image)
+2. **Image Size**: ✅ 1024×1024 (DALL-E 3 minimum, sufficient for laser cutting)
+3. **Variation Strategy**: ✅ 4 variations per session, generated in parallel
+4. **Theme Branching**: ✅ Backend ready, UI pending
+5. **Keyword Weighting**: ✅ Automatic based on ratings (backend ready)
+6. **B&W Conversion**: ✅ Requested from API via structure prompt (high contrast, no grayscale)
+7. **SVG Conversion**: 🔄 Future enhancement
+
+## Open Questions
+
+1. **Prompt Evolution**: How aggressively should we modify prompts based on ratings?
+2. **Structure Prompt**: Is current level of detail control optimal?
+3. **Theme Goal**: Should we add UI to mark a theme as "complete" when favorite is found?
 
 ## Success Metrics
 

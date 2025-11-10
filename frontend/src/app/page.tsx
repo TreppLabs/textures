@@ -17,6 +17,7 @@ interface Theme {
 interface Image {
   id: number;
   filename: string;
+  file_path: string;
   prompt: string;
   rating: number | null;
   created_at: string;
@@ -57,6 +58,30 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to load recent images:', error);
+    }
+  };
+
+  const handleRatingChange = async (imageId: number, rating: number) => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/images/${imageId}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rating }),
+      });
+
+      if (response.ok) {
+        // Update local state
+        setRecentImages(prev => 
+          prev.map(img => 
+            img.id === imageId ? { ...img, rating } : img
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Failed to update rating:', error);
     }
   };
 
@@ -166,7 +191,11 @@ export default function Dashboard() {
               View All →
             </Link>
           </div>
-          <ImageGrid images={recentImages} showRatings={true} />
+          <ImageGrid 
+            images={recentImages} 
+            showRatings={true} 
+            onRatingChange={handleRatingChange}
+          />
         </div>
 
         {/* Quick Actions */}
